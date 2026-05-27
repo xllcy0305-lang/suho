@@ -59,18 +59,17 @@ def render():
 
             with st.expander("  重置密码 / 启用禁用"):
                 for u in users:
-                    if u["username"] == "admin":
-                        continue
                     col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
                     col1.write(f"**{u['username']}** ({ROLES.get(u['role'], u['role'])})")
                     if col2.button("重置密码", key=f"rp_{u['username']}"):
                         reset_password(u["username"], "123456")
                         st.success(f"密码已重置为 123456")
                         st.rerun()
-                    status_label = "禁用" if u["is_active"] else "启用"
-                    if col3.button(status_label, key=f"st_{u['username']}"):
-                        update_user_status(u["username"], 0 if u["is_active"] else 1)
-                        st.rerun()
+                    if u["username"] != "admin":
+                        status_label = "禁用" if u["is_active"] else "启用"
+                        if col3.button(status_label, key=f"st_{u['username']}"):
+                            update_user_status(u["username"], 0 if u["is_active"] else 1)
+                            st.rerun()
 
     # ═══════════ 激活码管理 ═══════════
     with tab_codes:
