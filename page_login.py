@@ -67,5 +67,3 @@ def render():
                     st.rerun()
                 else:
                     st.error("账号或密码错误，或账号已被锁定")
-
-        st.caption("默认管理员: admin / admin123")
