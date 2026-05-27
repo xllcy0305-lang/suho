@@ -105,7 +105,7 @@ def main():
     # ── 侧边栏 ──
     with st.sidebar:
         st.markdown("##  NORVIK SHOP")
-        st.caption("AI OPERATING SYSTEM v3.0")
+        st.caption("AI OPERATING SYSTEM v3.1")
         st.divider()
         st.markdown(f"**{st.session_state.get('display_name', '')}**")
         st.caption(f"{get_role_name(get_current_role())} | {get_current_user()}")
@@ -165,7 +165,7 @@ def main():
             page_admin.render()
 
     st.divider()
-    st.caption("NORVIK SHOP AI OS v3.0 | © 2026")
+    st.caption("NORVIK SHOP AI OS v3.1 | © 2026")
 
 
 if __name__ == "__main__":
