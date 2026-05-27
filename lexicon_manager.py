@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
-"""词库管理模块 — 加载、保存、备份、注入热词"""
+"""词库管理模块 — 加载、保存、备份、注入热词（支持新旧两套词库）"""
 
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
 
+from config import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
-# ── 硬编码兜底全类目词库 ──
+# ── 硬编码兜底全类目词库（旧版 5 类目） ──
 BUILTIN_LEXICON = {
     "_meta": {"version": "2.1", "description": "内置全类目词库", "last_updated": "2026-05-26"},
     "platform_limits": {
@@ -69,25 +71,53 @@ BUILTIN_LEXICON = {
 def load_lexicon(lexicon_path: Path) -> dict:
     """
     加载词库。优先读文件，失败则用内置兜底。
+    新版：尝试加载 data/category_system.json（40 类目），合并到结果中。
     返回值永远是有效字典，绝不会返回空。
     """
+    result = None
+
+    # 1. 尝试加载旧版词库（平台限制 + 元数据）
     try:
         if lexicon_path.exists():
             with open(lexicon_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             if data.get("categories") and data.get("platform_limits"):
-                logger.info("词库从文件加载成功: %s", lexicon_path)
-                return data
+                result = data
+                logger.info("旧版词库从文件加载成功: %s", lexicon_path)
     except (json.JSONDecodeError, IOError) as e:
-        logger.warning("词库文件读取失败，使用内置词库: %s", e)
-    return BUILTIN_LEXICON
+        logger.warning("旧版词库文件读取失败: %s", e)
+
+    if result is None:
+        result = BUILTIN_LEXICON.copy()
+
+    # 2. 尝试加载新版 40 类目系统
+    cat_system_path = DATA_DIR / "category_system.json"
+    if not cat_system_path.exists():
+        # 兼容旧位置
+        alt = lexicon_path.parent / "category_system.json"
+        if alt.exists():
+            cat_system_path = alt
+
+    try:
+        if cat_system_path.exists():
+            with open(cat_system_path, "r", encoding="utf-8") as f:
+                new_cats = json.load(f)
+            if new_cats and len(new_cats) > 5:
+                result["categories"] = new_cats
+                result.setdefault("_meta", {})["category_system"] = True
+                result["_meta"]["total_categories"] = len(new_cats)
+                logger.info("新版 40 类目系统加载成功: %d 个类目", len(new_cats))
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning("新版类目系统加载失败，使用旧版: %s", e)
+
+    return result
 
 
 def save_lexicon(lexicon_path: Path, data: dict) -> bool:
     """保存词库到文件"""
     try:
         lexicon_path.parent.mkdir(parents=True, exist_ok=True)
-        data["_meta"]["last_updated"] = datetime.now().strftime("%Y-%m-%d")
+        data.setdefault("_meta", {})["last_updated"] = datetime.now().strftime("%Y-%m-%d")
         with open(lexicon_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
         return True
@@ -110,18 +140,22 @@ def backup_lexicon(backup_dir: Path, data: dict) -> bool:
 
 
 def inject_keywords(cat_key: str, keywords: list[str], lexicon: dict) -> tuple[int, str]:
-    """将热词注入指定类目的长尾词库"""
+    """将热词注入指定类目的长尾词库（兼容新旧字段名）"""
     try:
         if cat_key not in lexicon.get("categories", {}):
             return 0, "类目不存在"
-        existing = set(lexicon["categories"][cat_key].get("longtail", []))
+        cat = lexicon["categories"][cat_key]
+
+        # 兼容：新版用 longtail_keywords，旧版用 longtail
+        field = "longtail_keywords" if "longtail_keywords" in cat else "longtail"
+        existing = set(cat.get(field, []))
         added = 0
         for kw in keywords:
             kw = kw.strip()
             if kw and kw not in existing:
                 existing.add(kw)
                 added += 1
-        lexicon["categories"][cat_key]["longtail"] = list(existing)
+        cat[field] = list(existing)
         return added, f"新增 {added} 条，当前共 {len(existing)} 条长尾词"
     except Exception as e:
         return 0, f"注入异常: {e}"

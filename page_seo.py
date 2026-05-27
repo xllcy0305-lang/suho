@@ -17,6 +17,16 @@ def render(cat_data: dict, sel_cat_name: str, sel_plat_key: str,
     if subcats:
         st.caption("子类目: " + " | ".join(subcats))
 
+    # 显示平台热词标签
+    platform_hot_keys = {
+        "shopee_th": "shopee_hot", "lazada_th": "lazada_hot",
+        "tiktok_global": "tiktok_hot", "temu": "temu_hot",
+    }
+    hot_key = platform_hot_keys.get(sel_plat_key)
+    if hot_key and cat_data.get(hot_key):
+        hot_tags = " ".join(f"`{h}`" for h in cat_data[hot_key][:5])
+        st.caption(f"平台热词: {hot_tags}")
+
     product_cn = st.text_input(
         "  请输入中文产品词",
         placeholder="例如：智能手表、防晒霜、月亮椅、婴儿推车",
