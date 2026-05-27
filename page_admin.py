@@ -7,10 +7,11 @@ import pandas as pd
 from db import (
     get_all_users, create_user, update_user_status, reset_password,
     get_logs, get_all_codes, generate_activation_code, revoke_code,
-    get_online_users,
+    get_online_users, get_user_permissions, set_user_permissions,
+    delete_user_permissions,
 )
-from config import ROLES
-from auth_mod import get_current_user, get_role_name, has_permission
+from config import ROLES, ALL_FEATURE_KEYS
+from auth_mod import get_current_user, get_role_name, has_permission, get_user_all_permissions, ROLE_DEFAULTS
 
 
 def render():
@@ -18,9 +19,13 @@ def render():
         st.error("权限不足，需要管理员权限")
         return
 
-    tab_users, tab_codes, tab_logs, tab_online = st.tabs([
-        "  用户管理", "  激活码管理", "  操作日志", "  在线用户"
-    ])
+    is_super = has_permission("super_admin")
+    tab_labels = ["  用户管理", "  激活码管理", "  操作日志", "  在线用户"]
+    if is_super:
+        tab_labels.append("  权限管理")
+    tabs = st.tabs(tab_labels)
+    tab_users, tab_codes, tab_logs, tab_online = tabs[:4]
+    tab_perms = tabs[4] if is_super else None
 
     # ═══════════ 用户管理 ═══════════
     with tab_users:
@@ -137,3 +142,79 @@ def render():
             st.metric("在线人数", len(online))
         else:
             st.info("当前无在线用户")
+
+    # ═══════════ 权限管理（仅 super_admin） ═══════════
+    if tab_perms is not None:
+        with tab_perms:
+            st.markdown("####  用户权限管理")
+            st.caption("覆盖角色默认权限，仅需设置与角色默认不同的项。恢复默认请清除覆盖。")
+
+            users = get_all_users()
+            user_names = [u["username"] for u in users if u["username"] != "admin"]
+
+            if not user_names:
+                st.info("暂无其他用户")
+            else:
+                sel_user = st.selectbox("选择用户", user_names, key="perm_user")
+                sel_role = next((u["role"] for u in users if u["username"] == sel_user), "operator")
+
+                st.caption(f"角色: {ROLES.get(sel_role, sel_role)}")
+
+                # 获取合并后的权限
+                merged = get_user_all_permissions(sel_user, sel_role)
+                overrides = get_user_permissions(sel_user)
+
+                # 功能分类显示
+                func_keys = [k for k in ALL_FEATURE_KEYS if not k.startswith("platform_")]
+                plat_keys = [k for k in ALL_FEATURE_KEYS if k.startswith("platform_")]
+
+                func_labels = {
+                    "seo": "  生成标题", "roi": "  ROI 分析", "export": "  导出下载",
+                    "keywords": "  热词同步", "lexicon": "  词库管理", "admin": "⚙️ 管理后台",
+                }
+                plat_labels = {
+                    "platform_shopee": " Shopee", "platform_lazada": " Lazada",
+                    "platform_tiktok": " TikTok", "platform_temu": " Temu",
+                    "platform_amazon": " Amazon", "platform_taobao": " 淘宝",
+                    "platform_pdd": " 拼多多", "platform_douyin": " 抖音",
+                }
+
+                st.markdown("##### 功能权限")
+                new_perms = {}
+                cols = st.columns(3)
+                for i, key in enumerate(func_keys):
+                    label = func_labels.get(key, key)
+                    default_val = merged.get(key, False)
+                    is_override = key in overrides
+                    display = f"{label} {'*' if is_override else ''}"
+                    val = cols[i % 3].checkbox(display, value=default_val, key=f"fp_{key}")
+                    if val != ROLE_DEFAULTS.get(sel_role, {}).get(key, False):
+                        new_perms[key] = val
+
+                st.markdown("##### 平台权限")
+                cols = st.columns(4)
+                for i, key in enumerate(plat_keys):
+                    label = plat_labels.get(key, key)
+                    default_val = merged.get(key, False)
+                    is_override = key in overrides
+                    display = f"{label} {'*' if is_override else ''}"
+                    val = cols[i % 4].checkbox(display, value=default_val, key=f"pp_{key}")
+                    if val != ROLE_DEFAULTS.get(sel_role, {}).get(key, False):
+                        new_perms[key] = val
+
+                st.caption("* = 已覆盖角色默认值")
+
+                col_save, col_reset, _ = st.columns([1, 1, 2])
+                with col_save:
+                    if st.button("  保存权限", use_container_width=True):
+                        if new_perms:
+                            set_user_permissions(sel_user, new_perms, get_current_user())
+                            st.success(f"已更新 {sel_user} 的 {len(new_perms)} 项权限")
+                            st.rerun()
+                        else:
+                            st.info("无变更")
+                with col_reset:
+                    if st.button("  恢复角色默认", use_container_width=True):
+                        delete_user_permissions(sel_user)
+                        st.success(f"已恢复 {sel_user} 的角色默认权限")
+                        st.rerun()

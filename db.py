@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 
-from config import DB_PATH, SECRET_SALT, DEFAULT_ADMIN
+from config import DB_PATH, SECRET_SALT, DEFAULT_ADMIN, ALL_FEATURE_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,15 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_user ON operation_logs(username)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_time ON operation_logs(created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_codes_week ON activation_codes(week_label)")
+        conn.execute("""CREATE TABLE IF NOT EXISTS user_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            feature_key TEXT NOT NULL,
+            granted INTEGER NOT NULL DEFAULT 1,
+            updated_by TEXT DEFAULT 'system',
+            updated_at TEXT DEFAULT (datetime('now','localtime')),
+            UNIQUE(username, feature_key)
+        )""")
 
         admin = conn.execute(
             "SELECT id FROM users WHERE username=?", (DEFAULT_ADMIN["username"],)
@@ -291,3 +300,42 @@ def get_online_users(timeout_min: int = 5) -> list[dict]:
 def remove_online(username: str):
     with get_conn() as conn:
         conn.execute("DELETE FROM online_users WHERE username = ?", (username,))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 用户权限
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_user_permissions(username: str) -> dict[str, bool]:
+    """获取用户的 DB 权限覆盖项 {feature_key: granted}"""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT feature_key, granted FROM user_permissions WHERE username = ?",
+            (username,),
+        ).fetchall()
+    return {r["feature_key"]: bool(r["granted"]) for r in rows}
+
+
+def set_user_permissions(username: str, permissions: dict[str, bool],
+                         updated_by: str = "admin") -> bool:
+    """批量设置用户权限（upsert）"""
+    with get_conn() as conn:
+        for key, granted in permissions.items():
+            if key not in ALL_FEATURE_KEYS:
+                continue
+            conn.execute(
+                """INSERT INTO user_permissions (username, feature_key, granted, updated_by)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(username, feature_key) DO UPDATE SET
+                   granted=excluded.granted, updated_by=excluded.updated_by,
+                   updated_at=datetime('now','localtime')""",
+                (username, key, int(granted), updated_by),
+            )
+    return True
+
+
+def delete_user_permissions(username: str) -> bool:
+    """删除用户所有权限覆盖（恢复角色默认）"""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM user_permissions WHERE username = ?", (username,))
+    return True

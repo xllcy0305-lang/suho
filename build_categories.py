@@ -3,16 +3,30 @@
 
 CATEGORIES = {}
 
+# 公用中文热词
+CN_TK = ["爆款", "必入", "氛围感神器", "太好用了", "种草好物"]
+CN_TB = ["热销", "包邮", "7天无理由", "月销万件", "好评如潮"]
+CN_PD = ["限时特价", "厂家直销", "百亿补贴", "多人拼团", "亏本清仓"]
+CN_DY = ["绝绝子", "谁用谁知道", "姐妹们冲", "种草", "闭眼入"]
+CN_SCENE_GEN = ["居家", "办公", "出行", "送礼", "日常"]
+
 def cat(key, name, subs, base_th, base_en, mats, scenes, audience, longtail,
-        shopee_h, lazada_h, tiktok_h, temu_h):
+        shopee_h, lazada_h, tiktok_h, temu_h,
+        cn_scenes=None, cn_tb_h=None, cn_pd_h=None, cn_dy_h=None):
+    # 自动从子类目生成中文 base（子类目本身就是中文）
+    cn_base = subs[:] if subs else [name]
     CATEGORIES[key] = {
         "display_name": name,
         "subcategories": subs,
         "base": {
             "shopee": base_th,
             "lazada": base_th,
-            "tiktok": base_th[:5],
+            "tiktok": cn_base[:5],   # TikTok 用中文
             "temu": base_en,
+            "amazon": base_en,       # Amazon 复用英文
+            "taobao": cn_base,       # 淘宝用中文子类目
+            "pinduoduo": cn_base,    # 拼多多用中文
+            "douyin": cn_base[:5],   # 抖音用中文前5
         },
         "material_specs": mats,
         "scene_keywords": scenes,
@@ -20,8 +34,12 @@ def cat(key, name, subs, base_th, base_en, mats, scenes, audience, longtail,
         "longtail_keywords": longtail,
         "shopee_hot": shopee_h,
         "lazada_hot": lazada_h,
-        "tiktok_hot": tiktok_h,
+        "tiktok_hot": CN_TK + tiktok_h,         # 合并中文 TikTok 热词
         "temu_hot": temu_h,
+        "cn_scene_keywords": cn_scenes or CN_SCENE_GEN,
+        "cn_taobao_hot": cn_tb_h or CN_TB,
+        "cn_pdd_hot": cn_pd_h or CN_PD,
+        "cn_douyin_hot": cn_dy_h or CN_DY,
     }
 
 # 公用爆款词

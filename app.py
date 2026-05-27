@@ -18,7 +18,8 @@ from config import LEXICON_PATH
 from db import init_db, update_online, reset_password, verify_user
 from auth_mod import (
     is_logged_in, get_current_user, get_current_role,
-    get_role_name, do_logout, has_permission,
+    get_role_name, do_logout, can_access,
+    get_accessible_platforms,
 )
 from lexicon_manager import BUILTIN_LEXICON as _BUILTIN, load_lexicon
 
@@ -54,27 +55,14 @@ div[data-testid="stDownloadButton"]>button{background:linear-gradient(135deg,#05
 footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
-# ── 角色权限菜单配置 ──
-ROLE_BASED_MENU = {
-    "tabs": {
-        "seo":       {"label": "  生成标题", "min_role": "operator"},
-        "roi":       {"label": "  ROI 分析", "min_role": "operator"},
-        "keywords":  {"label": "  热词同步", "min_role": "admin"},
-        "lexicon":   {"label": "  词库管理", "min_role": "admin"},
-        "admin":     {"label": "⚙️ 企业管理", "min_role": "admin"},
-    },
-    "sidebar": {
-        "change_password": {"min_role": "admin"},
-    },
-}
-
-
-def _can_access(feature: str) -> bool:
-    """检查当前用户是否有权限访问某功能"""
-    cfg = ROLE_BASED_MENU.get("sidebar", {}).get(feature)
-    if not cfg:
-        return True
-    return has_permission(cfg["min_role"])
+# ── Tab 配置 ──
+TAB_CONFIG = [
+    ("seo",       "  生成标题"),
+    ("roi",       "  ROI 分析"),
+    ("keywords",  "  热词同步"),
+    ("lexicon",   "  词库管理"),
+    ("admin",     "⚙️ 企业管理"),
+]
 
 
 # ── 缓存词库（返回深拷贝防止缓存污染） ──
@@ -106,9 +94,6 @@ def main():
         update_online(get_current_user())
         st.session_state["_hb"] = now
 
-    # ── 当前用户角色 ──
-    is_admin = has_permission("admin")
-
     # ── 加载词库 ──
     lex = _cached_lexicon()
 
@@ -121,8 +106,10 @@ def main():
         lex["categories"] = _BUILTIN["categories"]
 
     plats = {}
+    accessible = get_accessible_platforms()
     for k, v in lex.get("platform_limits", {}).items():
-        plats[f"{v.get('name_cn', k)}（≤{v.get('max_chars', 120)}字符）"] = k
+        if k in accessible:
+            plats[f"{v.get('name_cn', k)}（≤{v.get('max_chars', 120)}字符）"] = k
     if not plats:
         plats = {"Shopee泰国站（≤120字符）": "shopee_th"}
         lex["platform_limits"] = _BUILTIN["platform_limits"]
@@ -144,7 +131,7 @@ def main():
         st.markdown(f"词库更新: {lex.get('_meta', {}).get('last_updated', '—')}")
 
         # ── 管理员专属：修改密码 ──
-        if _can_access("change_password"):
+        if can_access("admin"):
             st.divider()
             with st.expander("  修改密码"):
                 with st.form("change_pwd_form"):
@@ -174,13 +161,12 @@ def main():
     st.markdown("#### 企业级跨境电商 AI 运营工具平台")
     st.caption("选品类 → 输产品词 → 点按钮 → 下载 Excel")
 
-    # ── 按角色构建 tabs ──
-    tabs_cfg = ROLE_BASED_MENU["tabs"]
+    # ── 按权限构建 tabs ──
     active_tabs = []
     tab_keys = []
-    for key, cfg in tabs_cfg.items():
-        if has_permission(cfg["min_role"]):
-            active_tabs.append(cfg["label"])
+    for key, label in TAB_CONFIG:
+        if can_access(key):
+            active_tabs.append(label)
             tab_keys.append(key)
 
     tab_objs = st.tabs(active_tabs)
