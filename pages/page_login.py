@@ -1,0 +1,71 @@
+# -*- coding: utf-8 -*-
+"""登录页面 — 测试版"""
+
+import hashlib
+from datetime import datetime, timedelta
+
+import streamlit as st
+from auth.auth import do_login, is_logged_in
+
+
+def _check_code(user_input: str) -> bool:
+    """本地验证激活码，不依赖数据库"""
+    user_input = user_input.strip().upper()
+    for offset in [0, -1, 1]:
+        now = datetime.now() + timedelta(weeks=offset)
+        y, w, _ = now.isocalendar()
+        raw = f"{y}-W{w:02d}-NORVIKSHOP"
+        expected = hashlib.sha256(raw.encode()).hexdigest()[:12].upper()
+        if user_input == expected:
+            return True
+    return False
+
+
+def render():
+    if is_logged_in():
+        return
+
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.markdown("###  登录 NORVIK SHOP")
+        st.caption("企业级跨境电商 AI 运营系统")
+
+        # ── 第一步：激活码验证 ──
+        if not st.session_state.get("code_verified"):
+            st.markdown("#####  请输入激活码")
+            code = st.text_input(
+                "激活码", placeholder="请输入 12 位激活码",
+                max_chars=12, key="act_code_input",
+            )
+
+            if st.button("  验证激活码", use_container_width=True):
+                if not code:
+                    st.warning("请输入激活码")
+                elif _check_code(code):
+                    st.session_state["code_verified"] = True
+                    st.success("激活码验证通过！")
+                    st.rerun()
+                else:
+                    st.error(f"激活码无效，你输入的是: [{code}]")
+            return
+
+        # ── 第二步：用户登录 ──
+        with st.form("login_form"):
+            username = st.text_input("账号", placeholder="请输入用户名")
+            password = st.text_input(
+                "密码", type="password", placeholder="请输入密码",
+            )
+            submitted = st.form_submit_button(
+                "  登录", use_container_width=True,
+            )
+
+            if submitted:
+                if not username or not password:
+                    st.warning("请输入账号和密码")
+                elif do_login(username, password):
+                    st.success("登录成功，正在跳转…")
+                    st.rerun()
+                else:
+                    st.error("账号或密码错误，或账号已被锁定")
+
+        st.caption("默认管理员: admin / admin123")

@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+data/norvik_shop.db
+data/logs/
