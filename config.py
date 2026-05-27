@@ -65,7 +65,7 @@ ROLES = {
 # ── 默认管理员 ──
 DEFAULT_ADMIN = {
     "username": "admin",
-    "password": os.environ.get("ADMIN_PASSWORD", "admin123"),
+    "password": os.environ.get("ADMIN_PASSWORD", "NORVIK2026"),
     "role": "super_admin",
     "display_name": "系统管理员",
 }
