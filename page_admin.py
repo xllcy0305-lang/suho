@@ -171,6 +171,8 @@ def render():
                 func_labels = {
                     "seo": "  生成标题", "roi": "  ROI 分析", "export": "  导出下载",
                     "keywords": "  热词同步", "lexicon": "  词库管理", "admin": "⚙️ 管理后台",
+                    "sales": "  销售分析", "competitor": "  竞品监控",
+                    "ads_dashboard": "  广告看板", "product_report": "  选品报告",
                 }
                 plat_labels = {
                     "platform_shopee": " Shopee", "platform_lazada": " Lazada",

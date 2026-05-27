@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
-"""NORVIK SHOP AI OS — 全局配置"""
+"""SUHO 速合 — 跨境电商 AI 运营平台 全局配置"""
 
 import os
 from pathlib import Path
+
+# ── 品牌 ──
+BRAND_NAME = "SUHO"
+BRAND_NAME_CN = "速合"
+BRAND_SLOGAN = "跨境电商 AI 运营平台"
+BRAND_VERSION = "v4.0"
 
 # ── 路径 ──
 BASE_DIR = Path(__file__).resolve().parent
@@ -72,6 +78,7 @@ ROLES = {
 # ── 功能权限键 ──
 ALL_FEATURE_KEYS = [
     "seo", "roi", "export", "keywords", "lexicon", "admin",
+    "sales", "competitor", "ads_dashboard", "product_report",
     "platform_shopee", "platform_lazada", "platform_tiktok", "platform_temu",
     "platform_amazon", "platform_taobao", "platform_pdd", "platform_douyin",
 ]

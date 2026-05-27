@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import streamlit as st
 from auth_mod import do_login, is_logged_in
+from config import BRAND_NAME
 
 
 def _check_code(user_input: str) -> bool:
@@ -27,8 +28,8 @@ def render():
 
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
-        st.markdown("###  登录 NORVIK SHOP")
-        st.caption("企业级跨境电商 AI 运营系统")
+        st.markdown(f"###   登录 {BRAND_NAME}")
+        st.caption("跨境电商 AI 运营平台 — 请登录以继续")
 
         # ── 第一步：激活码验证 ──
         if not st.session_state.get("code_verified"):

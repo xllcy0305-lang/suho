@@ -15,6 +15,7 @@ ROLE_DEFAULTS = {
     "supervisor": {
         "seo": True, "roi": True, "export": True, "keywords": True,
         "lexicon": False, "admin": False,
+        "sales": True, "competitor": True, "ads_dashboard": True, "product_report": True,
         "platform_shopee": True, "platform_lazada": True,
         "platform_tiktok": True, "platform_temu": True,
         "platform_amazon": True, "platform_taobao": True,
@@ -23,6 +24,7 @@ ROLE_DEFAULTS = {
     "operator": {
         "seo": True, "roi": True, "export": True, "keywords": False,
         "lexicon": False, "admin": False,
+        "sales": True, "competitor": True, "ads_dashboard": False, "product_report": False,
         "platform_shopee": True, "platform_lazada": True,
         "platform_tiktok": True, "platform_temu": True,
         "platform_amazon": True, "platform_taobao": True,
