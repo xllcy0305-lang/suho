@@ -16,19 +16,29 @@ import streamlit as st
 
 from config import LEXICON_PATH
 from db import init_db, update_online, reset_password, verify_user
-from auth_mod import (
-    is_logged_in, get_current_user, get_current_role,
-    get_role_name, do_logout, can_access,
-    get_accessible_platforms,
-)
+try:
+    from auth_mod import (
+        is_logged_in, get_current_user, get_current_role,
+        get_role_name, do_logout, can_access,
+        get_accessible_platforms,
+    )
+except Exception as _e:
+    import traceback
+    st.error(f"auth_mod import failed: {_e}\n{traceback.format_exc()}")
+    st.stop()
 from lexicon_manager import BUILTIN_LEXICON as _BUILTIN, load_lexicon
 
-import page_login
-import page_seo
-import page_roi
-import page_keywords
-import page_lexicon
-import page_admin
+try:
+    import page_login
+    import page_seo
+    import page_roi
+    import page_keywords
+    import page_lexicon
+    import page_admin
+except Exception as _e2:
+    import traceback
+    st.error(f"Page import failed: {_e2}\n{traceback.format_exc()}")
+    st.stop()
 
 
 # ── 页面配置 ──
