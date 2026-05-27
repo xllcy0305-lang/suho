@@ -15,7 +15,7 @@ import time
 import streamlit as st
 
 from config import LEXICON_PATH
-from db import init_db, update_online
+from db import init_db, update_online, reset_password, verify_user
 from auth_mod import (
     is_logged_in, get_current_user, get_current_role,
     get_role_name, do_logout, has_permission,
@@ -117,6 +117,24 @@ def main():
         sel_plat_key = plats[sel_plat_label]
         st.divider()
         st.markdown(f"词库更新: {lex.get('_meta', {}).get('last_updated', '—')}")
+        st.divider()
+        with st.expander("  修改密码"):
+            with st.form("change_pwd_form"):
+                old_pwd = st.text_input("当前密码", type="password")
+                new_pwd = st.text_input("新密码", type="password")
+                confirm_pwd = st.text_input("确认新密码", type="password")
+                if st.form_submit_button("确认修改"):
+                    if not old_pwd or not new_pwd:
+                        st.warning("请填写所有字段")
+                    elif new_pwd != confirm_pwd:
+                        st.error("两次输入的新密码不一致")
+                    elif len(new_pwd) < 4:
+                        st.error("密码至少 4 位")
+                    elif not verify_user(get_current_user(), old_pwd):
+                        st.error("当前密码错误")
+                    else:
+                        reset_password(get_current_user(), new_pwd)
+                        st.success("密码修改成功！下次登录请用新密码")
         st.divider()
         if st.button("  退出登录", use_container_width=True):
             do_logout()
