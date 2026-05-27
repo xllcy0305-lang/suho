@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""NORVIK SHOP AI OS v3.0 — 企业级跨境电商 AI 运营工具平台"""
+"""NORVIK SHOP AI OS v3.1 — 企业级跨境电商 AI 运营工具平台"""
 
 import sys
 from pathlib import Path
@@ -54,6 +54,28 @@ div[data-testid="stDownloadButton"]>button{background:linear-gradient(135deg,#05
 footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
+# ── 角色权限菜单配置 ──
+ROLE_BASED_MENU = {
+    "tabs": {
+        "seo":       {"label": "  生成标题", "min_role": "operator"},
+        "roi":       {"label": "  ROI 分析", "min_role": "operator"},
+        "keywords":  {"label": "  热词同步", "min_role": "admin"},
+        "lexicon":   {"label": "  词库管理", "min_role": "admin"},
+        "admin":     {"label": "⚙️ 企业管理", "min_role": "admin"},
+    },
+    "sidebar": {
+        "change_password": {"min_role": "admin"},
+    },
+}
+
+
+def _can_access(feature: str) -> bool:
+    """检查当前用户是否有权限访问某功能"""
+    cfg = ROLE_BASED_MENU.get("sidebar", {}).get(feature)
+    if not cfg:
+        return True
+    return has_permission(cfg["min_role"])
+
 
 # ── 缓存词库（返回深拷贝防止缓存污染） ──
 @st.cache_data(ttl=120, show_spinner=False)
@@ -83,6 +105,9 @@ def main():
     if now - last_heartbeat > 60:
         update_online(get_current_user())
         st.session_state["_hb"] = now
+
+    # ── 当前用户角色 ──
+    is_admin = has_permission("admin")
 
     # ── 加载词库 ──
     lex = _cached_lexicon()
@@ -117,24 +142,28 @@ def main():
         sel_plat_key = plats[sel_plat_label]
         st.divider()
         st.markdown(f"词库更新: {lex.get('_meta', {}).get('last_updated', '—')}")
-        st.divider()
-        with st.expander("  修改密码"):
-            with st.form("change_pwd_form"):
-                old_pwd = st.text_input("当前密码", type="password")
-                new_pwd = st.text_input("新密码", type="password")
-                confirm_pwd = st.text_input("确认新密码", type="password")
-                if st.form_submit_button("确认修改"):
-                    if not old_pwd or not new_pwd:
-                        st.warning("请填写所有字段")
-                    elif new_pwd != confirm_pwd:
-                        st.error("两次输入的新密码不一致")
-                    elif len(new_pwd) < 4:
-                        st.error("密码至少 4 位")
-                    elif not verify_user(get_current_user(), old_pwd):
-                        st.error("当前密码错误")
-                    else:
-                        reset_password(get_current_user(), new_pwd)
-                        st.success("密码修改成功！下次登录请用新密码")
+
+        # ── 管理员专属：修改密码 ──
+        if _can_access("change_password"):
+            st.divider()
+            with st.expander("  修改密码"):
+                with st.form("change_pwd_form"):
+                    old_pwd = st.text_input("当前密码", type="password")
+                    new_pwd = st.text_input("新密码", type="password")
+                    confirm_pwd = st.text_input("确认新密码", type="password")
+                    if st.form_submit_button("确认修改"):
+                        if not old_pwd or not new_pwd:
+                            st.warning("请填写所有字段")
+                        elif new_pwd != confirm_pwd:
+                            st.error("两次输入的新密码不一致")
+                        elif len(new_pwd) < 4:
+                            st.error("密码至少 4 位")
+                        elif not verify_user(get_current_user(), old_pwd):
+                            st.error("当前密码错误")
+                        else:
+                            reset_password(get_current_user(), new_pwd)
+                            st.success("密码修改成功！下次登录请用新密码")
+
         st.divider()
         if st.button("  退出登录", use_container_width=True):
             do_logout()
@@ -145,23 +174,33 @@ def main():
     st.markdown("#### 企业级跨境电商 AI 运营工具平台")
     st.caption("选品类 → 输产品词 → 点按钮 → 下载 Excel")
 
-    tabs = ["  生成标题", "  ROI 分析", "  热词同步", "  词库管理"]
-    if has_permission("admin"):
-        tabs.append("⚙️ 企业管理")
+    # ── 按角色构建 tabs ──
+    tabs_cfg = ROLE_BASED_MENU["tabs"]
+    active_tabs = []
+    tab_keys = []
+    for key, cfg in tabs_cfg.items():
+        if has_permission(cfg["min_role"]):
+            active_tabs.append(cfg["label"])
+            tab_keys.append(key)
 
-    tab_objs = st.tabs(tabs)
+    tab_objs = st.tabs(active_tabs)
     cat_data = lex.get("categories", {}).get(sel_cat_key, {})
 
-    with tab_objs[0]:
+    tab_map = dict(zip(tab_keys, tab_objs))
+
+    with tab_map["seo"]:
         page_seo.render(cat_data, sel_cat_name, sel_plat_key, sel_plat_label, lex)
-    with tab_objs[1]:
+    with tab_map["roi"]:
         page_roi.render()
-    with tab_objs[2]:
-        page_keywords.render(sel_cat_name, sel_cat_key)
-    with tab_objs[3]:
-        page_lexicon.render(lex)
-    if has_permission("admin") and len(tab_objs) > 4:
-        with tab_objs[4]:
+
+    if "keywords" in tab_map:
+        with tab_map["keywords"]:
+            page_keywords.render(sel_cat_name, sel_cat_key)
+    if "lexicon" in tab_map:
+        with tab_map["lexicon"]:
+            page_lexicon.render(lex)
+    if "admin" in tab_map:
+        with tab_map["admin"]:
             page_admin.render()
 
     st.divider()
